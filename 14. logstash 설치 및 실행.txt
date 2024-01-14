@@ -1,0 +1,101 @@
+https://docs.google.com/presentation/u/0/d/120-O8GvDgrv7c3A_iEoubp6d9azuIYAWq5Jt9NG4TRo/edit
+
+
+bin/logstash로 하면 바로 실행은 안됨
+
+<실행법>
+
+- bin/logstash -e ': Enter 후 pipeline 직접 적어줌
+
+	- input { stdin { } }
+	- output { stdout { } }'
+
+- 위 방법을 파일로 저장하고, 그 파일을 실행하는 방법
+
+touch workshop.conf 으로 생성
+vi workshop.conf 로 열고
+
+input { 
+	stdin { } 
+}
+output { 
+	stdout { } 
+} 
+---->그대로 넣고 저장
+
+bin/logstash -f workshop.conf 실행
+
+
+- workshop.conf 수정
+
+https://www.elastic.co/guide/en/logstash/current/index.html (logstash document)
+-----> input, output 정보 확인
+--> 지금은 input/tcp 선택
+
+input {
+  tcp {
+    port => 9900
+  }
+}
+----> 로 input을 수정
+
+bin/logstash -f workshop.conf 로 다시 실행해보면, 9900포트를 바라보도록 설정되어 있다.
+
+또한,
+echo 'Hello Logstash' | nc localhost 9900 
+---->를 통해 9900포트를 통해서 logstash에 message를 띄울 수 있다.
+(지금 사용 중인 vm인스턴스가 Red Hat 계열의 리눅스라서, sudo yum install nc로 nc 설치 후)
+
+
+- 위 정보를 elasticsearch로 input (document에서 output/elasticsearch 참고)
+
+workshop.conf에서 output을 아래처럼 수정
+
+output { 
+	# stdout { } 
+	elasticsearch {
+	    hosts => ["34.64.197.46:9200"]  # node-1의 외부 ip주소, 9200 안 적어도 알아서 찾기는 함
+            user => "elastic" # 전에 설정했던 계정
+	    password => "dltkdduq"	
+	}
+} 
+------> bin/logstash -f workshop.conf로 다시 실행
+----> 그런데 이번에는 echo 'Hello Logstash' | nc localhost 9900로 메세지 보내도 안나타남
+
+--> dev tools에서 GET _cat/indices 해보면 logstash관련 log 남아있음 
+
+(logstash는 노드1에서 실행한 상태로, 클러스처링된 노드3에서 실행된 키바나에서 검색해도 될 줄 알았는데 안나오더라. 그래서 노드3에서 다시 logstash 설정)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

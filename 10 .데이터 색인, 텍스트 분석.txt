@@ -1,0 +1,85 @@
+<데이터를 분산저장하는 원리>
+https://esbook.kimjmin.net/06-text-analysis/6.2-text-analysis
+
+<analyze API 테스트>
+
+GET _analyze
+{
+  "text": "The quick brown fox jumps over the lazy dog",
+  "tokenizer": "whitespace",
+  "filter": [
+    "lowercase",    # 대소문자 통합
+    "stop",           # 불용어 제거
+    "snowball"     # 형태소 통합
+  ]
+}
+--> 위 결과 대/소문자 통합, 형태소 통합, 불용어 제거 등 반영되어 분산된 결과
+
+
+-아날라이저 적용
+
+PUT my_index2/_doc/1
+{
+  "message": "The quick brown fox jumps over the lazy dog"
+}
+
+message 필드에 snowball 애널라이저 적용
+
+PUT my_index2
+{
+  "mappings": {
+    "properties": {
+      "message": {
+        "type": "text",
+        "analyzer": "snowball"
+      }
+    }
+  }
+}
+
+GET my_index2/_search
+{
+  "query": {
+    "match": {
+      "message": "jumping"
+    }
+  }
+}
+----> "message": "jumps", "message": "jump", "message": "jumping" 모두 동일한 결과가 나온다.
+----> 정확하게 일치하는 단어 찾고 싶으면 "match" 대신 "term" 사용
+
+
+<사용자 정의 애널라이저>
+
+
+PUT my_index3
+{
+  "settings": {
+    "index": {
+      "analysis": {
+        "analyzer": {
+          "my_custom_analyzer": {
+            "type": "custom",
+            "tokenizer": "whitespace",
+            "filter": [
+              "lowercase",
+              "my_stop_filter",
+              "snowball"
+            ]
+          }
+        },
+        "filter": {
+          "my_stop_filter": {
+            "type": "stop",
+            "stopwords": [
+              "brown"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+-----> "my_stop_filter"라는 필터를 만들고, 이를 "my_custom_analyzer" 애널라이저 안에 포함시키다.
+
+

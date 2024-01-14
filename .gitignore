@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Xcode
+*.swp
+.idea/
+
+# Compiled files
+*.o
+*.pyc
+
+# Dependency directories
+/node_modules
+/vendor
+
+# Logs and databases
+/logs
+/db.sqlite3
+
+# Environment variables
+.env

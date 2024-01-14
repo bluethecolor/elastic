@@ -1,0 +1,98 @@
+<풀텍스트 쿼리>
+
+POST my_index/_bulk
+{"index":{"_id":1}}
+{"message":"The quick brown fox"}
+{"index":{"_id":2}}
+{"message":"The quick brown fox jumps over the lazy dog"}
+{"index":{"_id":3}}
+{"message":"The quick brown fox jumps over the quick dog"}
+{"index":{"_id":4}}
+{"message":"Brown fox brown dog"}
+{"index":{"_id":5}}
+{"message":"Lazy jumping dog"}
+
+GET my_index/_search
+
+
+- match all 쿼리
+
+- match 쿼리
+
+GET my_index/_search
+{
+  "query": {
+    "match": {
+      "message": "quick dog"
+    }
+  }
+}
+----> quick이 들어간 id와 dog가 들어간 id 모두 찾음
+
+
+GET my_index/_search
+{
+  "query": {
+    "match": {
+      "message": {
+        "query": "quick dog",
+        "operator": "and"
+      }
+    }
+  }
+}
+----> 이렇게 "operator": "and"을 쓰면 quick과 dog 모두 들어간 id를 조회
+
+
+- match_phrase 쿼리 : quick dog 내 띄어쓰기도 인식하여 검색
+
+GET my_index/_search
+{
+  "query": {
+    "match_phrase": {
+	:"message": "lazy dog"
+	}
+    }
+}
+-----> 띄어쓰기도 포함된 정확한 "lazy dog"만 조회
+
+
+- match_phrae에 slop옵션 추가
+
+GET my_index/_search
+{
+  "query": {
+    "match_phrase": {
+      "message": {
+        "query": "lazy dog",
+        "slop": 1
+      }
+    }
+  }
+}
+-----> lazy와 dog 사이에 1개(slop: 1)까지의 검색어 허용해서 검색 
+ex) "lazy jumping dog"도 검색됨
+
+
+- quety_string
+
+GET my_index/_search
+{
+  "query": {
+    "query_string": {
+      "default_field": "message",
+      "query": "(jumping AND lazy) OR \"quick dog\""
+    }
+  }
+}
+---> jumping과 lazy가 함께 있거나, "quick dog"가 있거나
+
+
+풀텍스트 쿼리에는 스코어 점수가 나오며, 스코어가 높은 순으로 출력
+----> BM25 계산식
+	- TF : 특정 단어 빈도수로
+	- IDF : 단어가 흔해질수록 점수가 낮아짐
+	- Field Lengh: 길이 짧은 필드가 더 높은 점수 (ex 내용보단 제목이 더 중요)
+
+
+

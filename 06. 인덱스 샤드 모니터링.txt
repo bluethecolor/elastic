@@ -1,0 +1,108 @@
+<dev tools>
+
+curl -XPUT "http://localhost:9200/books" -H 'Content-Type: application/json' -d'
+{
+  "settings": {
+    "number_of_shards": 5,
+    "number_of_replicas": 1
+  }
+}'
+
+이런 형태를 복사해서 dev tools에 붙여넣으면
+
+PUT /books
+{
+  "settings": {
+    "number_of_shards": 5,
+    "number_of_replicas": 1
+  }
+}
+
+로 자동 변환
+
+
+- replica 수는 중간에 바꿀 수 있지만, 기본 샤드 수는 변경 불가
+
+PUT books/_settings
+{
+  "number_of_replicas": 0
+}
+이런식으로 바꿔준다.
+
+
+- GET _cat/nodes?v&h=ip,name,node.role 로 3개의 서버의 ip name role 조회
+- GET _cat/indices?v&h=health,index,docs.count,pri,rep
+(v: 헤더 제목들 출력, h: 그 중 보고 싶은 것만 선정) , (쉼표에 띄어쓰기 x)
+
+- GET _cat 을 통해 모든 목록 조회
+- GET _cat/shards 를 통해 모든 샤드 조회
+
+
+<모니터링>
+
+위 방법은 조회로 샤드를 하나하나 찾아야 하지만 managemnet의 stack monitering을 통해 전체적으로 파악 가능 (당장은 self moniterig 활용)
+
+
+- 클러스터 내 지정된 설정들 확인
+GET _cluster/settings
+
+-> persistent, transient 설정 존재
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "xpack" : {
+      "monitoring" : {
+        "collection" : {
+          "enabled" : true
+        }
+      }
+    }
+  }
+}
+
+persistent 내에서 "enabled"만 false로 변경하면 "enabled"만 false로 변경됨
+
+"enabled" : null로 하면 persistent 내 내용이 초기상태로 돌아감
+-> 이렇게 한 시점부터 데이터는 stack monitoring 불가
+
+"enabled" : true 로 하면 모니터링 다시 켜짐
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Migrate Elasticsearch Watches before continuing
+If you've used Internal Collection in the past, you'll have a few Elasticsearch Watches configured for your monitoring data.
+
+To avoid duplication of work, it will be best to disable those before you create the Kibana rules.
+
+To disable the Watches, you'll need to invoke the below API on each cluster where Internal Collection has been enabled in the past.
+
+POST /_monitoring/migrate/alerts
+
+Once all monitoring Watches have been disabled, click Create to create the Kibana rules.
+
+
+
+
+
+
+
+
+
+
+
+

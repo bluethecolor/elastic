@@ -1,0 +1,235 @@
+
+<object/nested 형식>
+
+- object필드
+
+PUT movie/_doc/1
+{
+  "characters": {
+    "name": "Iron Man",
+    "age": 46,
+    "side": "superhero"
+  }
+}
+----> charqacters필드 안에 하위필더 존재
+
+GET movie/_mapping 
+----> 로 맵핑을 확인하면 properties 안의 charqacters필드 안에 type이 바로 안오고 또 properties가 있고, 그 안에 각각의 필드의 type 정보 존재
+
+GET movie/_search
+{"query": {
+  "match": {
+    "characters.name": "iron"
+    }
+  }
+}
+----> characters.name처럼 .을 기준으로 하위 필드 검색
+
+
+- object필드의 문제점
+
+PUT movie/_doc/2
+{
+  "title": "The Avengers",
+  "characters": [
+    {"name": "Iron Man", "side": "superhero"},
+    {"name": "Loki", "side": "villain"}
+  ]
+}
+
+PUT movie/_doc/3
+{
+  "title": "Avengers: Infinity War",
+  "characters": [
+    {"name": "Loki", "side": "superhero"},
+    {"name": "Thanos", "side": "villain"}
+  ]
+}
+----> doc2,3도 추가, characters필드 안에 object필드가 2가 있는 형태
+
+
+GET movie/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "characters.name": "Loki"
+          }
+        },
+        {
+          "match": {
+            "characters.side": "villain"
+          }
+        }
+      ]
+    }
+  }
+}
+----> 이렇게 검색하면 name": "Loki" / side": "villain" 하 하나의 object 안에 있는 docs/2만 검색될거 같지만, 
+characters 필드 내에서 name": "Loki" 와 side": "villain"가 다른 object에 나눠져있는 docs/3도 같이 검색이 된다.
+
+----> elastic 분산 저장 시스템의 문제로, 해결하려면 object가 아니라 nested필드를 사용해야
+
+
+- nested필드 사용
+
+PUT movie
+{
+  "mappings": {
+    "properties": {
+      "characters": {
+        "type": "nested",
+        "properties": {
+          "name": {
+            "type": "text"
+          },
+          "side": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  }
+}
+----> "type": "nested"로 해줌. 추가로 doc/2, docs/3은 위와 동일하게 저장
+
+
+- nested필드는 _search할 때 반드시 nested쿼리를 사용해야 한다.
+
+GET movie/_search
+{
+  "query": {
+    "nested": {
+      "path": "characters",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "characters.name": "Loki"
+              }
+            },
+            {
+              "match": {
+                "characters.side": "villain"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+----> "nested" 아래에 "path"로 필드 설정
+
+
+- object vs nested
+- object: 하나의 document로 설정
+- nested: document 내의 하위 document들을 별도의 영역에 저장
+
+
+
+<위치정보 -Geo>
+
+PUT my_geo
+{
+  "mappings": {
+    "properties": {
+      "location": {
+        "type": "geo_point"
+      }
+    }
+  }
+}
+---> 이렇게 미리 "type": "geo_point"으로 location의 type을 정의해놔야 한다.
+---> 그렇지 않으면 mapping 조회해도 위치정보가 float형태로 나옴
+
+PUT my_geo/_doc/1
+{
+  "location": {
+    "lat": 41.12,
+    "lon": -71.34
+  }
+}
+---> 그 다음 위치정보를 입력
+
+
+PUT my_geo/_bulk
+{"index":{"_id":"1"}}
+{"station":"강남","location":{"lon":127.027926,"lat":37.497175},"line":"2호선"}
+{"index":{"_id":"2"}}
+{"station":"종로3가","location":{"lon":126.991806,"lat":37.571607},"line":"3호선"}
+{"index":{"_id":"3"}}
+{"station":"여의도","location":{"lon":126.924191,"lat":37.521624},"line":"5호선"}
+{"index":{"_id":"4"}}
+{"station":"서울역","location":{"lon":126.972559,"lat":37.554648},"line":"1호선"}
+----> 벌크 데이터 추가 입력
+
+
+- geo_bounding_box 쿼리
+
+GET my_geo/_search
+{
+  "query": {
+    "geo_bounding_box": {
+      "location": {
+        "bottom_right": {
+          "lat": 37.4899,
+          "lon": 127.0388
+        },
+        "top_left": {
+          "lat": 37.5779,
+          "lon": 126.9617
+        }
+      }
+    }
+  }
+}
+----> 2개의 점 기준으로 박스를 그려서 그 안의 영역을 찾는 geo_bounding_box 쿼리 방식
+
+
+- geo_distance 쿼리
+
+GET my_geo/_search
+{
+  "query": {
+    "geo_distance": {
+      "distance": "5km",
+      "location": {
+        "lat": 37.5358,
+        "lon": 126.9559
+      }
+    }
+  }
+}
+----> 하나의 점을 기준으로 반경 내의 영역을 찾음.
+
+
+- Geo Shape
+
+여러개의 점을 찍고, 이를 토대로 선이나 면을 만들어 저장 가능
+내용이 많아 생략
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

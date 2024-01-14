@@ -1,0 +1,14 @@
+<elasticsearch,  kibana 설치>
+
+curl -o elasticsearch-8.11.3.tar.gz -L {버전에 맞는 설치 링크 주소} (리눅스 버전 elastic search 다운로드)
+
+curl -o kibana-8.11.3.tar.gz -L {버전에 맞는 설치 링크 주소} (리눅스 버전 키바나 다운로드)
+
+tar xfz elasticsearch.tar.gz (엘라스틱서치 압축해제)
+
+tar xfz kibana.gz (키바나 압축해제)
+
+
+엘라스틱서치 폴더로 이동 후 bin/elasticsearch 하면 실행됨
+
+ps -ef | grep elasticsearch 로 엘라스틱서치 실행 여부 확인

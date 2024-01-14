@@ -1,0 +1,126 @@
+클러스터링
+
+
+<외부에서도 해당 gcp에 접속할 수 있게 nework.host 설정>
+
+elasticsearch.yml에서 
+network.host: "_site_"
+추가
+
+이거에 추가적으로 unlimit를 설정해야
+
+
+[Configuring system settings 설정]
+sudo su
+
+su {gcp 계정id}
+
+exit 로 빠져나오고
+
+ls -l /etc/security/limits.conf
+
+sudo vi /etc/security/limits.conf 로 열고
+제일 밑에
+
+{gcp 계정id}  -  nofile  65535
+추가
+
+[virtual memory 설정]
+sudo sysctl -w vm.max_map_count=262144 실행
+
+ls -la /etc/sysctl.conf
+
+sudo vi /etc/sysctl.conf 로 열고
+제일 밑에
+vm.max_map_count=262144 추가
+
+이제 시스템을 재시작
+sudo shutdown -r
+
+vi config/elasticsearch.yml 에서
+discovery.seed_hosts: ["elastic-1"]                                                                    
+cluster.initial_master_nodes: ["node-1"]   추가 (기존꺼는 주석처리)
+
+이제 bin/elasticsearch 하면 정상적으로 실행됨
+
+ifconfig로 내부ip가 해당 gcp vm인스턴스의 내부 ip임을 확인하고
+
+curl {vm인스턴스의 내부 ip}:9200 하면 정상연결 확인
+
+그리고 gcp 외부에서
+curl {vm인스턴스의 외부 ip}:9200 해도
+아직 연결이 안됨
+
+-> 방화벽 추가 설정 필요.
+
+방화벽 규칙 만들기 -> 소스 IPv4 범위: 0.0.0.0/0, 태그&이름: elastic, TCP: 9200 설장하고 저장
+
+vm인스턴스에서 edit 들어가서 네트워크 태그에 위 생성한 elastic 추가
+
+그럼 이제 외부에서
+curl {vm인스턴스의 외부 ip}:9200
+하면 연결이 된다.
+
+
+
+
+<클러스터링 구성>
+
+이번에 할 것은 3개의 vm인스턴스로 클러스터링을 구성
+
+기존 vm인스턴스의 새 이미지 만들기 선택 -> 이름: elastic-cluster, 리전: 서울
+-> 해당 이미지를 통해 elastic-2라는 새 인스턴스를 생성
+
+새 인스턴스의 yml파일의 노드값을 맞게 수정
+
+
+<3개의 노드의 내부 ip 직접 명시>
+
+-> elastic-1에서 ls -la /etc/hosts 로 체크하고, sudo vi /etc/hosts 로 열고
+
+{elastic-1의 내부ip}     elastic-1                                                                                               {elastic-2의 내부ip}     elastic-2                                                                                               {elastic-3의 내부ip}     elastic-3  
+
+이렇게 내부ip와 인스턴스 이름을 추가해준다. (3개의 서버 모두 적용)
+
+
+<이제 2번 호스트 실행시키고, 1번 호스트에서 2번 호스트에 접속>
+
+안전하게 2번 호스트의 data는 삭제 -> rm -rf data 
+
+이제 방화벽을 추가로 만들어준다.
+-> 이름: elastic-internal, 소스 필터: 소스 태그: elastic-internal, 보조 소스 필터: 소스 태그: elastic-internal, TCP: 9200, 9300
+
+1,2,3번 인스턴스 모두 네트워크 태그에 위 방화벽 elastic-internal을 추가 (2,3번은 elastic(1번 노드 서버가 외부랑 연결되게 해주는 방화벽) 제외)
+
+-> 이렇게하면 외부에서 클라이언트가 9200포트로 1번 노드의 서버랑만 통신 가능
+
+이제 2번 호스트의 elasticsearch.yml에서 
+
+discovery.seed_hosts: ["elastic-2"]
+cluster.initial_master_nodes: ["node-2"] 로 추가로 수정 -> 서로 디스커버리하느라 헤메지 않고 자기 혼자 실행
+-> 이제 1번 호스트에서 curl {2번내부IP}:9200 하면 접속됨
+-> curl elastic-2:9200 로 내부ip 내신 인스턴스 이름으로 해도 가능
+
+
+이제 config/elasticserch.yml에서 (3개 노드 서버 모두 적용)
+discovery.seed_hosts: ["elastic-1", "elastic-2", "elastic-3"]                                                           cluster.initial_master_nodes: ["node-1", "node-2", "node-3"]  로 수정
+-> 이제 호스트1,2,3끼리 서로 찾는다.
+
+이렇게 하면 호스트1,2,3 모두 따로따로 실행한 이력이 있어서 안될 수 있다. -> data파일 전부 지우면 해결됨
+
+
+이제 각자 인스턴스에서 다른 인스턴스의
+curl elastic-1:9200 / curl elastic-2:9200 / curl elastic-3:9200 
+이런식으로 하면 연결이 확인됨
+
+그리고 curl {외부랑 연결된 1번 노드 서버의 외부 ip}:9200/_cat/nodes  로 외부 로컬에서 실행해보면
+
+{elastic-1의 내부ip} 45 96 0 0.00 0.04 0.12 cdfhilmrstw - node-1
+{elastic-2의 내부ip} 22 96 0 0.04 0.09 0.11 cdfhilmrstw * node-2
+{elastic-3의 내부ip} 39 92 0 0.00 0.07 0.10 cdfhilmrstw - node-3
+
+이런식으로 3개의 노드가 클러스터링 된 것을 확인할 수 있다.
+
+curl "http://{외부랑 연결된 1번 노드 서버의 외부 ip}:9200/_cat/nodes?v" 로 하면
+
+더욱 세부 정보 확인 가능

@@ -1,0 +1,123 @@
+클라스틱 보안 설정
+
+/Users/{gcp 계정id}/ .ssh/known_hosts:22 등으로 기존의 ip를 지워줘야할 수도
+
+
+<아이디/패스워드 적용>
+
+elasticsarch.yml에서 xpack.security.enabled: true로 설정
+
+통신보안 추가로 적용 xpack.security.transport.ssl.enabled: true  
+
+여기에 키를 추가로 만들어서 추가
+- bin/elasticsearch-certutil ca 실행
+- Enter를 누르면 Please enter the desired output file 지문에 대한 default
+- 패스워드 설정
+- ls해보면 elastic-stack-ca.p12라는 파일 만들어진 것을 확인
+- mkdir config/certs (이미 있었음)
+
+(dns와 ip는 vm인스턴스들에 맞게 설정)
+(out은 config/certs/es-cluster.p12 로 설정)
+./bin/elasticsearch-certutil cert \
+--ca elastic-stack-ca.p12 \ 
+--dns elastic-1,elastic-2,elastic-3 \ 
+--ip {노드1 서버 내부ip},{노드2 서버 내부ip},{노드3 서버 내부ip} \
+--out config/certs/es-cluster.p12 
+-----> 위 명령어를 한번에 실행
+
+그러면 아래 절차가 진행됨
+- 공개키 패스워드 입력
+- es-cluster.p12의 패스워드 입력
+--->  ls config/certs/ 해보면 es-cluster.p12 생성됨.
+
+
+- elasticserch.yml에서 절대경로 추가 필요
+xpack.security.transport.ssl.keystore.path: certs/${cluster.name}.p12 
+xpack.security.transport.ssl.truststore.path: certs/${cluster.name}.p12
+-->
+xpack.security.transport.ssl.keystore.path: certs/es-cluster.p12 
+xpack.security.transport.ssl.truststore.path: certs/es-cluster.p12
+
+
+이제 bin/elasticsearch를 실행할 때 패스워드 입력 옵션을 config/elasticearch.yml에 추가해줘야 한다.
+xpack.security.transport.ssl.keystore.secure_password: "문자 패스워드"
+xpack.security.transport.ssl.truststore.secure_password: "문자 패스워드"
+
+그런데 yml에 이렇게 패스워드를 뻔히 보이게 박아두면 오류 발생 (위험)
+
+이러한 패스워드는 yml이 아니라 keystore에 저장해야 함.
+
+./bin/elasticsearch-keystore create로 생성 (이미 있음)
+
+이제 keystore에 패스워드 추가해줌
+./bin/elasticsearch-keystore add xpack.security.transport.ssl.keystore.secure_password
+./bin/elasticsearch-keystore add xpack.security.transport.ssl.truststore.secure_password
+
+이제 bin/elasticsearch-keystore list로 확인 가능
+
+이제 bin/easticsearch로 실행하면 오류 없이 실행이 됨.
+
+
+
+<1,2,3 노드의 보안설정>
+
+1번 서버의 인증서를 다 만들었고, 이 인증서를 복사해서 2,3번 서버에도 보내준다.
+
+-> 로컬에 내려받고 이걸 다시 보내는 형식
+
+
+scp -i ~/.ssh/es-rsa {gcp 계정id}@{1번 노드 서버 외부ip}:/home/{gcp 계정id}/{엘라스틱서치 폴더명}/config/certs/es-cluster.p12
+로 복사하고
+
+scp -i ~/.ssh/es-rsa {gcp 계정id}@{1번 노드 서버 외부ip}:/home/{gcp 계정id}/{엘라스틱서치 폴더명}/config/certs/es-cluster.p12 ./
+로 1번 서버에서 가져와서 로컬에 저장
+
+2,3번 서버에도 onfig/certs 폴더 생성 (있으면 생략)
+
+scp -i ~/.ssh/es-rsa ./es-cluster.p12 {gcp 계정id}@{2번 노드 서버 외부ip}:/home/{gcp 계정id}/{엘라스틱서치 폴더명}/config/certs/es-cluster.p12
+
+scp -i ~/.ssh/es-rsa ./es-cluster.p12 {gcp 계정id}@{3번 노드 서버 외부ip}:/home/{gcp 계정id}/{엘라스틱서치 폴더명}/config/certs/es-cluster.p12
+
+---->로 로컬에 저장해둔 es-cluster.p12를 2,3번 서버의 config/certs에 저장한다.
+
+2,3번 서버의 yml파일도 수정, keystore 생성하고 패스워드를 add해줌.
+
+
+이렇게 하고 bin/elasticsearch 후 curl로 연결을 확인하면 인증 문제가 있음
+elaticsearch 관련 명령할 때 아이디, 패스워드를 넣어줘야 하고, 아래에서 생성
+
+<사용자 - 암호설정>
+
+(bin/elasticsearch가 실행된 상태에서)
+
+bin/elasticsearch-setup-passwords auto : 패스워드 자동생성
+
+bin/elasticsearch-setup-passwords interactive : 사용자가 입력한 패스워드 사용, 이렇게 하면 elastic stack의 모든 암호를 한번에 설정
+
+--> 클러스터링 상태에서 저장되므로, 아무 노드에서나 실행하면 모든 노드에서 사용 가능
+--> 반드시 패스워드는 문자열로 생성 (안그럼 나중에 문제됨)
+
+(bin/elasticsearch-users useradd {gcp 계정id} -p password -r superuser : 특정 역할의 비밀번호 재설정, 해당 노드에서만 됨. 이렇게 노드1에서 설정하고, 노드2에서 접속하려고 하면 안됨s)
+
+이제 
+curl elastic-1:9200 -u elastic:{문자 패스워드}  이런식으로 입력하면 된다.
+curl 34.64.208.175:9200/_cat/nodes -u elastic:{문자 패스워드}  : 외부에서는이런식으로
+모든 명령 뒤에 -u elastic:{문자 패스워드} 을 붙인다.
+
+(elastic super user id는 웬만하면 공유/사용하지 말고, 개별적으로 super id를 생성하는 것을 권장)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

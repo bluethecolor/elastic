@@ -1,0 +1,104 @@
+키바나
+
+- 키바나는 3번 노드가 있는 서버에 연결해보는 걸로
+
+tags: kibana
+tcp: 5601
+filter IP: 0.0.0.0/0
+
+노드1,2,3 실행 후 연결 확인
+
+config/kibana.yml을 열고,
+server.host: "elastic-3"                                                                                     
+server.name: "my-kibana"              
+elasticsearch.hosts: ["http://elastic-3:9200"]     
+      
+# kibana와 elasticsearch가 다른 인스터스인 경우, elasticsearch가 실행되고 있는 인스턴스의 주소를 적어주면 됨.                                                        
+elasticsearch.hosts: ["http://localhost:9200"] 
+
+
+현재는 elasticsearch에 보안이 적용되어 있기 때문에
+
+kibana.yml에 
+elasticsearch.username: "kibana_system"  을 추가하고, 패스워드는 keystore에 저장
+
+bin/kibana-keystore create (있으면 생략)
+bin/kibana-keystore add elasticsearch.password 입력하고 패스워드 입력.
+bin/kibana-keystore list 로 확인
+
+!!비밀번호가 문자여야만 kibana 실행 가능!!
+
+
+
+http://elastic-3:5601
+-->노드3외부ip주소:5601 접속
+
+이젠 5601 관련 방화벽 만들어야 위에 접속 가능
+
+방화벽 규칙 --> 이름: kibana, 대상태그: kibana, 소스 IPv4 범위: 0.0.0.0/0, tcp: 5601
+
+이 방화벽을 3번 인스턴스에 적용
+
+--> 이렇게 하면 34.22.80.37:5601 접속 가능
+
+
+<키바나 접속 이후>
+
+Explore on my own으로 접속
+
+패스워드는 이전 설정에서 처음 받은 토큰값이 아닌 위에서 새로 설정한 값으로 바뀜
+
+stack management -> security -> users -> create users 선택하여 새로운 id/password 설정
+
+이렇게 하면 로그아웃 하고 이 계정으로 로그인 가능
+
+
+
+
+<엘라스틱 데몬 실행법> (백그라운드로 실행)
+
+echo 'bin/elasticsearch -d -p es.pid' > start.sh
+
+echo 'kill `cat es.pid`' > stop.sh
+
+chmod 755 start.sh stop.sh 권한변경
+
+./start.sh 로 실행
+
+(2~3번도 동일하게 적용)
+
+- 종료
+
+ps -ef | grep elasticsearch
+kill {PID}
+하거나
+./start.sh 로 종료
+
+
+<키바나 데몬 실행법> (백그라운드로 실행)
+
+키바나는 --d옵션 x
+
+bin/kibana &
+ctrl + c로 빠져나오기
+
+- 종료하기
+
+키바나는
+ps -ef | grep node  로 kibana가 아닌 grep으로 조회해야 나온다.
+kill {PID}
+
+키비나는 src/clicli.js 를 실행시켜서도 가능  (영상 1-7-2 5분 50초 내용)
+
+
+<pm2 이용해 키바나 백그라운드로 돌리기> (궅이 사용 안한다고 함)
+
+
+<pm2를 이용한 데몬 실행>
+
+
+
+
+
+
+

@@ -1,0 +1,108 @@
+<bool 복합 쿼리>
+
+여러 개의 쿼리를 같이 쓰기
+
+- must : 참인 쿼리
+- must_not : 거짓인 쿼리
+- should : must와 must_not에 걸러진 것 중 (검색결과 중) 점수를 높임.
+- filter : must와 같지만 스코어 계산 x, must보다 빠름
+
+GET my_index/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "message": "quick"
+          }
+        },
+        {
+          "match_phrase": {
+            "message": "lazy dog"
+          }
+        }
+      ]
+    }
+  }
+}
+----> must 내 두 조건은 AND로 묶임
+
+
+GET my_index/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "message": "fox"
+          }
+        }
+      ],
+      "should": [
+        {
+          "match": {
+            "message": "lazy"
+          }
+        }
+      ]
+    }
+  }
+}
+--> must로 1차로 걸러내고 should문 내에서 스코어 순으로 검색, must 조건에 매칭됨에 따라 점수 상승한 쿼리 존재
+
+--> 만약 should가 아니라 filter였다면 변동된 점수 반영 x , 그냥 필터링만 하고 싶을 때 쓴다.
+
+
+<범위 쿼리>
+숫자, 날짜
+range 쿼리
+
+- gte - 이상
+- gt - 초과
+- lte  - 이하
+- lt - 미만
+
+POST phones/_bulk
+{"index":{"_id":1}}
+{"model":"Samsung GalaxyS 5","price":475,"date":"2014-02-24"}
+{"index":{"_id":2}}
+{"model":"Samsung GalaxyS 6","price":795,"date":"2015-03-15"}
+{"index":{"_id":3}}
+{"model":"Samsung GalaxyS 7","price":859,"date":"2016-02-21"}
+{"index":{"_id":4}}
+{"model":"Samsung GalaxyS 8","price":959,"date":"2017-03-29"}
+{"index":{"_id":5}}
+{"model":"Samsung GalaxyS 9","price":1059,"date":"2018-02-25"}
+
+- price값이 700이상 ~ 900미만인 값 검색
+
+GET phones/_search
+{
+  "query": {
+    "range": {
+      "price": {
+        "gte": 700,
+        "lt": 900
+      }
+    }
+  }
+}
+
+- 날짜 검색
+
+GET phones/_search
+{
+  "query": {
+    "range": {
+      "date": {
+        "gt": "2016-01-01",
+        "lt": "2017-01-01"
+      }
+    }
+  }
+}
+
+
+
